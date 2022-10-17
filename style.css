@@ -1,0 +1,91 @@
+/*@import url("https://webgl2fundamentals.org/webgl/resources/webgl-tutorials.css");*/
+canvas {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
+
+#slides {
+    position: absolute;
+    top: 125px;
+    right: 400px;
+    font-size: 18px;
+
+}
+
+#image_drop_area{
+    position: absolute;
+
+
+    width: 400px;
+    height: 225px;
+    border: 1px solid black;
+    background-position: center;
+    background-size: cover;
+    box-sizing: border-box;
+}
+
+#imgs {
+    position: absolute;
+    top: 350px;
+    right: 250px;
+    font-size: 18px;
+    alignment: right;
+    text-indent: inherit;
+
+}
+
+br {
+    line-height: 20px;
+}
+
+
+
+#sizes {
+    position: absolute;
+    top: 125px;
+    right: 40px;
+}
+
+.slider {
+    -webkit-appearance: none;
+    width: 50%;
+    height: 10px;
+    border-radius: 5px;
+    background: #d3d3d3;
+    outline: none;
+    opacity: 0.7;
+    -webkit-transition: .2s;
+    transition: opacity .2s;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: dimgray;
+    cursor: pointer;
+}
+
+.button {
+    background-color: steelblue;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+.header {
+    padding: 10px;
+    text-align: left;
+    background: #bcd2e8;
+    color: white;
+    font-size: 25px;
+}
