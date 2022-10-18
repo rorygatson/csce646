@@ -8,8 +8,7 @@
 
 <div class="header">
     <!-- Use the buttons to create multiple pages later if required -->
-    <button class="button">Filters</button>
-    <button class="button">Complex Filters</button>
+    <header>Project 1</header>
 </div>
 
 <!--create canvas, and add interface related stuff like sliders etc -->
@@ -18,30 +17,49 @@
     <p>Drag and drop an image into the box</p>
     <div id="image_drop_area"></div>
 </div>
+
 <div id="sizes">
-    <div class="rangeslider">
-        <input type="range" min="1" max="20" value="3" id="kernelSize" step="2" >
-        <label for="kernelSize">Kernel Size</label><br>
-    </div>
-    <br><br><br><br><br><br><br>
-    <div class="rangeslider">
-        <input type="range" min="0" max="180" value="0" id="angleSlider" step="2" >
-        <label for="kernelSize">Angle for Motion Blur</label><br>
-    </div>
-
+  <div class="rangeslider">
+    <input type="range" min="1" max="20" value="3" id="kernelSlider" step="2" >
+    <label for="kernelSize">Blur Kernel Size</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+    <input type="range" min="1" max="200" value="1" id="periodSlider" step="1" >
+    <label for="periodSize">Period Length</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+    <input type="range" min="1" max="100" value="1" id="xSlider" step="1" >
+    <label for="xOrigin">Center X Coord.</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+    <input type="range" min="1" max="100" value="1" id="ySlider" step="1" >
+    <label for="yOrigin">Center Y Coord.</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+    <input type="range" min="0" max="255" value="255" id="redSlider" step="2" >
+    <label for="redSize">Blur Red</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+      <input type="range" min="0" max="255" value="255" id="greenSlider" step="2" >
+      <label for="greenSize">Blur Green</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+      <input type="range" min="0" max="255" value="255" id="blueSlider" step="2" >
+      <label for="blueSize">Blur Blue</label><br>
+  </div>
 </div>
-<div id="slides">
-    <input type="radio" name="blur_rb" id="blur0"  value="0" checked="checked">
-    <label for="blur0">No Blur</label><br><br>
-    <input type="radio" name="blur_rb" id="blur1"  value="1">
-    <label for="blur1">Box Blur</label><br><br>
-    <input type="radio" name="blur_rb" id="blur2"  value="2">
-    <label for="blur2">Gaussian Blur</label><br><br>
-    <input type="radio" name="blur_rb" id="blur3"  value="3">
-    <label for="blur3">Dilate</label><br><br>
-    <input type="radio" name="blur_rb" id="blur6"  value="4">
-    <label for="blur6">Motion Blur</label><br><br>
 
+<div id="slides">
+    <input type="radio" name="hist_rb" id="hist0"  value="0" checked="checked">
+    <label for="blur0">Original</label><br><br>
+    <input type="radio" name="hist_rb" id="hist1"  value="1">
+    <label for="blur1">Cool Ripple Effect</label><br><br>
 </div>
 
 
@@ -98,6 +116,13 @@ uniform int u_kernelSize;
 uniform int u_kernelSelf;
 uniform int type;
 
+uniform float u_red;
+uniform float u_green;
+uniform float u_blue;
+uniform float u_period;
+uniform float u_xorigin;
+uniform float u_yorigin;
+
 // the texCoords passed in from the vertex shader.
 in vec2 v_texCoord;
 
@@ -106,46 +131,46 @@ out vec4 outColor;
 
 void main() {
   vec2 onePixel = vec2(1) / vec2(textureSize(u_image, 0));
-
   vec4 colorSum = vec4(0.0);
 
+  vec4 tmp_clr = texture(u_image, v_texCoord);
+  float rm = 1.0;
+  float gm = 1.0;
+  float bm = 1.0;
+  float n_sin_value = 0.0;
 
-  //based on what the kernel type is, apply the kernel to get result for the pixel
-  if (type!=3){
-        for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++)
-          {
-            for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++)
-            {
-                colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
-            }
-          }
-          colorSum = vec4((colorSum).rgb/u_kernelWeight, 1);
+  // Plot distance from given origin on sinusoid
+  if (type != 0) {
+    float distance = sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
+    float sin_value = sin(u_period * distance);
+    n_sin_value = (sin_value + 1.0) / 2.0;
+    
+    // If in on correct point box blur
+    if (sin_value > 0.0) {
+      for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
+        for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+            colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+        }
+      }
+      colorSum = vec4((colorSum).rgb, 1);
+    }
+    else { // Original color
+      colorSum = vec4(tmp_clr.r, tmp_clr.g, tmp_clr.b, 1);
+    }
 
-  }
-  else if(type==3){
-        float maxW = -1., maxR = -1., maxG = -1., maxB = -1.;
-
-        for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++)
-          {
-            for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
-
-                  vec4 tmp_clr = texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
-                  if (tmp_clr.r > maxR)
-                    maxR = tmp_clr.r;
-                  if (tmp_clr.g > maxG)
-                    maxG = tmp_clr.g;
-                  if (tmp_clr.b > maxB)
-                    maxB = tmp_clr.b;
-                  if (u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize] > maxW)
-                    maxW = u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
-             }
-            }
-
-         colorSum = vec4(maxR/maxW, maxG/maxW, maxB/maxW, 1);
+    // Noramlize color modifiers from sliders
+    float divisor = 255.0;
+    rm = u_red / divisor;
+    gm = u_green / divisor;
+    bm = u_blue / divisor;
   }
 
+  // Original and blur/color effects weighted by normalized sine function
+  float final_r = colorSum.r * rm * n_sin_value + tmp_clr.r * (1.0 - n_sin_value);
+  float final_g = colorSum.g * gm * n_sin_value + tmp_clr.g * (1.0 - n_sin_value);
+  float final_b = colorSum.b * bm * n_sin_value + tmp_clr.b * (1.0 - n_sin_value);
 
-  outColor = vec4((colorSum).rgb, 1);
+  outColor = vec4(final_r, final_g, final_b, 1);
 }
 
 </script>

@@ -19,14 +19,14 @@
         var vertex_shader_src = document.getElementById("vertex-shader-2d");
         var fragment_shader_src = document.getElementById("fragment-shader-2d");
 
-    //create shaders
+        //create shaders
         var vertex_shader = createShader(gl, gl.VERTEX_SHADER, vertex_shader_src);
         var fragment_shader = createShader(gl, gl.FRAGMENT_SHADER, fragment_shader_src);
 
-    //create the program
+        //create the program
         var program = createProgram(gl, vertex_shader, fragment_shader);
 
-    //data
+        //data
         var a_position_loc = gl.getAttribLocation(program,"a_position");
         var position_buffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER,position_buffer);
@@ -40,11 +40,11 @@
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions),gl.STATIC_DRAW);
 
-    //tell attribute how to take data out
+        //tell attribute how to take data out
         var vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         gl.enableVertexAttribArray(a_position_loc); //enable
-    //how to take it out
+        //how to take it out
         var size=2; //2 components per iteration
         var type = gl.FLOAT; //i.e. data is 32 bit float
         var normalize = false;  //dont normalize the data
@@ -54,12 +54,12 @@
 
         webglUtils.resizeCanvasToDisplaySize(gl.canvas);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    // Clear the canvas
+        // Clear the canvas
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
 
-        //image and kernel related stuf
+        //image and kernel related stuff
         var texCoordAttributeLocation = gl.getAttribLocation(program, "a_texCoord");
         var imageLocation = gl.getUniformLocation(program, "u_image");
         var kernelLocation = gl.getUniformLocation(program, "u_kernel[0]");
@@ -67,6 +67,14 @@
         var kernelSizeLocation = gl.getUniformLocation(program,"u_kernelSize");
         var kernelSelfLocation = gl.getUniformLocation(program,"u_kernelSelf");
         var typeLoc = gl.getUniformLocation(program,"type");
+
+        var redValue = gl.getUniformLocation(program,"u_red");
+        var greenValue = gl.getUniformLocation(program,"u_green");
+        var blueValue = gl.getUniformLocation(program,"u_blue");
+
+        var periodValue = gl.getUniformLocation(program,"u_period");
+        var xValue = gl.getUniformLocation(program,"u_xorigin");
+        var yValue = gl.getUniformLocation(program,"u_yorigin");
 
 
         // provide texture coordinates for the rectangle.
@@ -120,7 +128,7 @@
                 srcType,
                 image);
 
-    //use our shader program
+        //use our shader program
         gl.useProgram(program);
         gl.bindVertexArray(vao);
 
@@ -144,117 +152,69 @@
         gl.uniform1i(kernelSelfLocation,0);
 
         var kernelType = 0;
-        var kernelSizeSlider = document.querySelector('#kernelSize');
-        kernelSizeSlider.addEventListener('input',() => change_kernel(-1), false);
 
-        var angleSlider = document.querySelector('#angleSlider');
-        angleSlider.addEventListener('input',() => change_kernel(-1), false);
+        var kernelSizeSlider = document.querySelector('#kernelSlider');
+        kernelSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        var periodSizeSlider = document.querySelector('#periodSlider');
+        periodSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        var xSlider = document.querySelector('#xSlider');
+        xSlider.addEventListener('input',() => change_mode(-1), false);
+        var ySlider = document.querySelector('#ySlider');
+        ySlider.addEventListener('input',() => change_mode(-1), false);
 
+        var redSizeSlider = document.querySelector('#redSlider');
+        redSizeSlider.addEventListener('input',() => change_mode(-1), false);
 
-        var radios = document.querySelectorAll('input[type=radio][name="blur_rb"]');
-        //based on what radio button is selected, change the kernel to be applied to the image
+        var greenSizeSlider = document.querySelector('#greenSlider');
+        greenSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        
+        var blueSizeSlider = document.querySelector('#blueSlider');
+        blueSizeSlider.addEventListener('input',() => change_mode(-1), false);
+
+        var radios = document.querySelectorAll('input[type=radio][name="hist_rb"]');
+        //based on what radio button is selected, change the histogram mode to be applied to the image
         //so everytime you make change to the radio button, an event will be generatd which will call
-        //the change_kernel function
-        radios.forEach(radio => radio.addEventListener('change', () => change_kernel(radio.value)));
+        //the change_mode function
+        radios.forEach(radio => radio.addEventListener('change', () => change_mode(radio.value)));
 
 
-        function change_kernel(n) {
+        function change_mode(n) {
             if (n==-1)
                 n = kernelType;
             else
                 kernelType = n;
             gl.uniform1i(kernelSelfLocation,0);
+
+            var r = redSizeSlider.value;
+            var g = greenSizeSlider.value;
+            var b = blueSizeSlider.value;
+            gl.uniform1f(redValue, r);
+            gl.uniform1f(greenValue, g);
+            gl.uniform1f(blueValue, b);
+
+            var p = periodSizeSlider.value;
+            var x = xSlider.value / 100.0;
+            var y = ySlider.value / 100.0;
+            gl.uniform1f(periodValue, p);
+            gl.uniform1f(xValue, x);
+            gl.uniform1f(yValue, y);
+
+            var s = kernelSizeSlider.value;
+            var tmp_kernel = [];
+            for(var i=0; i<s*s; i++) {
+                tmp_kernel.push(1.0/(s*s));
+            }
+            gl.uniform1fv(kernelLocation, tmp_kernel);
+            gl.uniform1f(kernelWeightLocation, 1.0);
+            gl.uniform1i(kernelSizeLocation, s);
+
             if (n==0)
             {
-                var tmp_kernel = [];
-                tmp_kernel[0] = 1;
-                gl.uniform1fv(kernelLocation, tmp_kernel);
-                gl.uniform1f(kernelWeightLocation, 1.0);
-                gl.uniform1i(kernelSizeLocation, 1);
                 gl.uniform1i(typeLoc,0);
             }
-            if (n==1)
+            else if (n==1)
             {
-                var tmp_kernel = [];
-                var s = kernelSizeSlider.value;
-                for(var i=0; i<s*s; i++) {
-                    tmp_kernel.push(1.0/(s*s));
-                }
-                gl.uniform1fv(kernelLocation, tmp_kernel);
-                gl.uniform1f(kernelWeightLocation, 1.0);
-                gl.uniform1i(kernelSizeLocation, s);
                 gl.uniform1i(typeLoc,1);
-            }
-            else if (n==2 )
-            {
-                var tmp_kernel = [];
-                var s = kernelSizeSlider.value;
-                var W = 0;
-                var r=2;
-                for(var i=0; i<s; i++){
-                    for(var j=0; j<s; j++){
-                        var x = i + 0.5;
-                        var y = j + 0.5;
-                        var f_xy = ((x-s/2)*(x-s/2) +  (y-s/2)*(y-s/2))/(r*r);
-                        var w = Math.exp(-f_xy);
-                        W+=w;
-                        tmp_kernel.push(w);
-
-                    }
-                }
-                 for(var i=0; i<s; i++) {
-                     for (var j = 0; j < s; j++) {
-                         tmp_kernel[i * s + j] /= W;
-                     }
-                 }
-
-                gl.uniform1fv(kernelLocation, tmp_kernel);
-                gl.uniform1f(kernelWeightLocation, 1);
-                gl.uniform1i(kernelSizeLocation, s);
-                gl.uniform1i(typeLoc,2);
-            }
-            else if (n==3)
-            {
-                var tmp_kernel = [];
-                var s = kernelSizeSlider.value;
-                for(var i=0; i<s; i++) {
-                    for (var j = 0; j < s; j++) {
-                        var tmp_w = Math.random()*70 + 10;
-                        tmp_kernel.push(tmp_w);
-                    }
-                }
-
-                gl.uniform1fv(kernelLocation, tmp_kernel);
-                gl.uniform1i(kernelSizeLocation, s);
-                gl.uniform1f(kernelWeightLocation, 1);
-                gl.uniform1i(typeLoc,3);
-            }
-            else if (n==4)
-            {
-                var tmp_kernel = [];
-                var s = kernelSizeSlider.value;
-                var W = 0;
-                var theta = (angleSlider.value)*Math.PI/180;
-                for(var i=0; i<s; i++) {
-                    for(var j=0; j<s; j++) {
-                        var ltheta = -Math.sin(theta)*(i-s/2) + Math.cos(theta)*(j-s/2);
-                        var tmp_w = 1 - Math.abs(ltheta);
-                        if (tmp_w<0)
-                                tmp_w = 0;
-                        W += tmp_w;
-                        tmp_kernel.push(tmp_w);
-                    }
-                }
-
-                for(var i=0; i<s; i++) {
-                    for (var j = 0; j < s; j++) {
-                        tmp_kernel[i * s + j] /= W;
-                    }
-                }
-                gl.uniform1fv(kernelLocation, tmp_kernel);
-                gl.uniform1i(kernelSizeLocation, s);
-                gl.uniform1f(kernelWeightLocation, 1);
-                gl.uniform1i(typeLoc,4);
             }
             webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
@@ -280,9 +240,6 @@
             event.stopPropagation();
             event.preventDefault();
             FileList = event.dataTransfer.files;
-
-
-
             readImage(FileList[0]);
            // render(FileList[0].image);
 
@@ -291,7 +248,7 @@
         var primitiveType = gl.TRIANGLES;
         var offset = 0;
         var count = 6;
-        change_kernel(0);
+        change_mode(0);
         gl.drawArrays(primitiveType, offset, count);
 
     }
