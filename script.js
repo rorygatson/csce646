@@ -68,14 +68,8 @@
         var kernelSelfLocation = gl.getUniformLocation(program,"u_kernelSelf");
         var typeLoc = gl.getUniformLocation(program,"type");
 
-        var redValue = gl.getUniformLocation(program,"u_red");
-        var greenValue = gl.getUniformLocation(program,"u_green");
-        var blueValue = gl.getUniformLocation(program,"u_blue");
-
-        var periodValue = gl.getUniformLocation(program,"u_period");
-        var xValue = gl.getUniformLocation(program,"u_xorigin");
-        var yValue = gl.getUniformLocation(program,"u_yorigin");
-
+        var dotSizeLocation = gl.getUniformLocation(program,"u_dotSize");
+        var dotNumLocation = gl.getUniformLocation(program,"u_dotNum");
 
         // provide texture coordinates for the rectangle.
         var texCoordBuffer = gl.createBuffer();
@@ -153,23 +147,14 @@
 
         var kernelType = 0;
 
-        var kernelSizeSlider = document.querySelector('#kernelSlider');
-        kernelSizeSlider.addEventListener('input',() => change_mode(-1), false);
-        var periodSizeSlider = document.querySelector('#periodSlider');
-        periodSizeSlider.addEventListener('input',() => change_mode(-1), false);
-        var xSlider = document.querySelector('#xSlider');
-        xSlider.addEventListener('input',() => change_mode(-1), false);
-        var ySlider = document.querySelector('#ySlider');
-        ySlider.addEventListener('input',() => change_mode(-1), false);
+        var mapSizeSlider = document.querySelector('#mapSlider');
+        mapSizeSlider.addEventListener('input',() => change_mode(-1), false);
 
-        var redSizeSlider = document.querySelector('#redSlider');
-        redSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        var dotSizeSlider = document.querySelector('#dotSlider');
+        dotSizeSlider.addEventListener('input',() => change_mode(-1), false);
 
-        var greenSizeSlider = document.querySelector('#greenSlider');
-        greenSizeSlider.addEventListener('input',() => change_mode(-1), false);
-        
-        var blueSizeSlider = document.querySelector('#blueSlider');
-        blueSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        var dotNumSlider = document.querySelector('#dotNumSlider');
+        dotNumSlider.addEventListener('input',() => change_mode(-1), false);
 
         var radios = document.querySelectorAll('input[type=radio][name="hist_rb"]');
         //based on what radio button is selected, change the histogram mode to be applied to the image
@@ -185,28 +170,39 @@
                 kernelType = n;
             gl.uniform1i(kernelSelfLocation,0);
 
-            var r = redSizeSlider.value;
-            var g = greenSizeSlider.value;
-            var b = blueSizeSlider.value;
-            gl.uniform1f(redValue, r);
-            gl.uniform1f(greenValue, g);
-            gl.uniform1f(blueValue, b);
-
-            var p = periodSizeSlider.value;
-            var x = xSlider.value / 100.0;
-            var y = ySlider.value / 100.0;
-            gl.uniform1f(periodValue, p);
-            gl.uniform1f(xValue, x);
-            gl.uniform1f(yValue, y);
-
-            var s = kernelSizeSlider.value;
+            var s = mapSizeSlider.value;
+            var total_s = (2**s)**2;
             var tmp_kernel = [];
-            for(var i=0; i<s*s; i++) {
-                tmp_kernel.push(1.0/(s*s));
+            if ( kernelType == 1 ) {
+                var base_kernel = [0, 2, 3, 1];
+                var final_kernel = [];
+                for(var i=2; i <= s; i++) {
+                    var prev_s = 2**(i-1);
+                    var curr_s = 2**i;
+                    for (var xt = 0; xt < curr_s; xt++) {
+                        for (var yt = 0; yt < curr_s; yt++) {
+                            var m = base_kernel[Math.floor(xt / 2) * prev_s + Math.floor(yt / 2)] + base_kernel[(xt % 2) * prev_s + yt % 2] * 4;
+                            final_kernel.push(m);
+                        }
+                    }
+                    base_kernel = final_kernel.map((x) => x);
+                    final_kernel = [];
+                }
+                for (var i = 0; i < total_s; i++) {
+                    tmp_kernel.push((base_kernel[i] / total_s).toFixed(7));
+                }
+                console.log(tmp_kernel);
+                gl.uniform1fv(kernelLocation, tmp_kernel);
             }
-            gl.uniform1fv(kernelLocation, tmp_kernel);
+            else if ( kernelType == 2 ) {
+                var dotSize = dotSizeSlider.value;
+                var dotNum = dotNumSlider.value;
+                gl.uniform1i(dotSizeLocation, dotSize);
+                gl.uniform1i(dotNumLocation, dotNum);
+            }
+
             gl.uniform1f(kernelWeightLocation, 1.0);
-            gl.uniform1i(kernelSizeLocation, s);
+            gl.uniform1i(kernelSizeLocation, 2**s);
 
             if (n==0)
             {
@@ -216,12 +212,15 @@
             {
                 gl.uniform1i(typeLoc,1);
             }
+            else if (n==2)
+            {
+                gl.uniform1i(typeLoc,2);
+            }
             webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
             // Clear the canvas
             gl.clearColor(0, 0, 0, 0);
             gl.clear(gl.COLOR_BUFFER_BIT);
-
 
             gl.drawArrays(primitiveType, offset, count);
 

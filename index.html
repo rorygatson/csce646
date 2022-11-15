@@ -20,38 +20,18 @@
 
 <div id="sizes">
   <div class="rangeslider">
-    <input type="range" min="1" max="20" value="3" id="kernelSlider" step="2" >
-    <label for="kernelSize">Blur Kernel Size</label><br>
+    <input type="range" min="1" max="4" value="1" id="mapSlider" step="1" >
+    <label for="mapSize">Threshold Map Size</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="200" value="1" id="periodSlider" step="1" >
-    <label for="periodSize">Period Length</label><br>
+    <input type="range" min="5" max="100" value="50" id="dotSlider" step="5" >
+    <label for="dotSize">Max Dot Size</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="100" value="1" id="xSlider" step="1" >
-    <label for="xOrigin">Center X Coord.</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-    <input type="range" min="1" max="100" value="1" id="ySlider" step="1" >
-    <label for="yOrigin">Center Y Coord.</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-    <input type="range" min="0" max="255" value="255" id="redSlider" step="2" >
-    <label for="redSize">Blur Red</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-      <input type="range" min="0" max="255" value="255" id="greenSlider" step="2" >
-      <label for="greenSize">Blur Green</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-      <input type="range" min="0" max="255" value="255" id="blueSlider" step="2" >
-      <label for="blueSize">Blur Blue</label><br>
+    <input type="range" min="4" max="16" value="8" id="dotNumSlider" step="2" >
+    <label for="dotNum">Dot Spread</label><br>
   </div>
 </div>
 
@@ -59,7 +39,9 @@
     <input type="radio" name="hist_rb" id="hist0"  value="0" checked="checked">
     <label for="blur0">Original</label><br><br>
     <input type="radio" name="hist_rb" id="hist1"  value="1">
-    <label for="blur1">Cool Ripple Effect</label><br><br>
+    <label for="blur1">Ordered Dithering</label><br><br>
+    <input type="radio" name="hist_rb" id="hist2"  value="2">
+    <label for="blur2">Halftone</label><br><br>
 </div>
 
 
@@ -116,12 +98,8 @@ uniform int u_kernelSize;
 uniform int u_kernelSelf;
 uniform int type;
 
-uniform float u_red;
-uniform float u_green;
-uniform float u_blue;
-uniform float u_period;
-uniform float u_xorigin;
-uniform float u_yorigin;
+uniform int u_dotSize;
+uniform int u_dotNum;
 
 // the texCoords passed in from the vertex shader.
 in vec2 v_texCoord;
@@ -133,44 +111,87 @@ void main() {
   vec2 onePixel = vec2(1) / vec2(textureSize(u_image, 0));
   vec4 colorSum = vec4(0.0);
 
+  vec2 pixelLoc = v_texCoord / onePixel;
+
   vec4 tmp_clr = texture(u_image, v_texCoord);
-  float rm = 1.0;
-  float gm = 1.0;
-  float bm = 1.0;
-  float n_sin_value = 0.0;
 
-  // Plot distance from given origin on sinusoid
-  if (type != 0) {
-    float distance = sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
-    float sin_value = sin(u_period * distance);
-    n_sin_value = (sin_value + 1.0) / 2.0;
+  // Get a greyscale value for image
+  //float greyValue = (tmp_clr.r + tmp_clr.g + tmp_clr.b) / 3.0;
+  float greyValue = 0.3 * tmp_clr.r + 0.6 * tmp_clr.g + 0.1 * tmp_clr.b;
+
+  if (type == 1) {
+    float filterValue = u_kernel[(int(pixelLoc.y) % u_kernelSize) * u_kernelSize + 
+                                 (int(pixelLoc.x) % u_kernelSize)];
+
+    // Initialize greyscale values
+    float final_r = greyValue;
+    float final_g = greyValue;
+    float final_b = greyValue;
+
+    // Filter Pass
+    if (greyValue < filterValue) {
+      final_r = 0.0;
+      final_g = 0.0;
+      final_b = 0.0;
+    }
+    else {
+      final_r = 1.0;
+      final_g = 1.0;
+      final_b = 1.0;
+    }
+    outColor = vec4(final_r, final_g, final_b, 1);
+  }
+  else if (type == 2) {
     
-    // If in on correct point box blur
-    if (sin_value > 0.0) {
-      for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
-        for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
-            colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
-        }
+    // For each pixel in given square
+    int x_edge = int(pixelLoc.x) % u_dotSize;
+    int y_edge = int(pixelLoc.y) % u_dotSize;
+    
+    // Find average grey value of region
+    vec4 color_i = vec4(0.0);
+    float greySum = 0.0;
+    for(int i = -y_edge; i <= u_dotSize-1-y_edge; i++) {
+      for(int j= -x_edge; j <= u_dotSize-1-x_edge; j++) {
+          color_i = texture(u_image, v_texCoord + onePixel * vec2(j, i));
+          greySum += 0.3 * color_i.r + 0.6 * color_i.g + 0.1 + color_i.b;
       }
-      colorSum = vec4((colorSum).rgb, 1);
     }
-    else { // Original color
-      colorSum = vec4(tmp_clr.r, tmp_clr.g, tmp_clr.b, 1);
-    }
+    float avgGrey = greySum / (float(u_dotSize) * float(u_dotSize));
 
-    // Noramlize color modifiers from sliders
-    float divisor = 255.0;
-    rm = u_red / divisor;
-    gm = u_green / divisor;
-    bm = u_blue / divisor;
+    // Determine what size dot for region
+    float dotFrac = 1.0 / float(u_dotNum);
+    int i_pin = int(avgGrey * 1000.0) / int(dotFrac * 1000.0);
+    float f_pin = dotFrac * float(i_pin);
+
+    float f_dotSize = float(u_dotSize);
+    float distCenter = sqrt(pow((pixelLoc.x - float(x_edge) + f_dotSize / 2.0) - pixelLoc.x, 2.0) 
+                            + pow((pixelLoc.y - float(y_edge) + f_dotSize / 2.0) - pixelLoc.y, 2.0));
+    
+    // Initialize greyscale values
+    float final_r = avgGrey;
+    float final_g = avgGrey;
+    float final_b = avgGrey;
+
+    if (distCenter / (f_dotSize / 2.0) < (1.0 - f_pin)) {
+      final_r = 0.0;
+      final_g = 0.0;
+      final_b = 0.0;
+    }
+    else {
+      final_r = 1.0;
+      final_g = 1.0;
+      final_b = 1.0;
+    }
+    outColor = vec4(final_r, final_g, final_b, 1);
+
+  }
+  else {
+    outColor = tmp_clr;
   }
 
-  // Original and blur/color effects weighted by normalized sine function
-  float final_r = colorSum.r * rm * n_sin_value + tmp_clr.r * (1.0 - n_sin_value);
-  float final_g = colorSum.g * gm * n_sin_value + tmp_clr.g * (1.0 - n_sin_value);
-  float final_b = colorSum.b * bm * n_sin_value + tmp_clr.b * (1.0 - n_sin_value);
 
-  outColor = vec4(final_r, final_g, final_b, 1);
+
+
 }
 
 </script>
