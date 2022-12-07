@@ -68,11 +68,7 @@
         var kernelSelfLocation = gl.getUniformLocation(program,"u_kernelSelf");
         var typeLoc = gl.getUniformLocation(program,"type");
 
-        var redValue = gl.getUniformLocation(program,"u_red");
-        var greenValue = gl.getUniformLocation(program,"u_green");
-        var blueValue = gl.getUniformLocation(program,"u_blue");
-
-        var periodValue = gl.getUniformLocation(program,"u_period");
+        var widthValue = gl.getUniformLocation(program,"u_width");
         var xValue = gl.getUniformLocation(program,"u_xorigin");
         var yValue = gl.getUniformLocation(program,"u_yorigin");
 
@@ -155,21 +151,12 @@
 
         var kernelSizeSlider = document.querySelector('#kernelSlider');
         kernelSizeSlider.addEventListener('input',() => change_mode(-1), false);
-        var periodSizeSlider = document.querySelector('#periodSlider');
-        periodSizeSlider.addEventListener('input',() => change_mode(-1), false);
+        var widthSlider = document.querySelector('#widthSlider');
+        widthSlider.addEventListener('input',() => change_mode(-1), false);
         var xSlider = document.querySelector('#xSlider');
         xSlider.addEventListener('input',() => change_mode(-1), false);
         var ySlider = document.querySelector('#ySlider');
         ySlider.addEventListener('input',() => change_mode(-1), false);
-
-        var redSizeSlider = document.querySelector('#redSlider');
-        redSizeSlider.addEventListener('input',() => change_mode(-1), false);
-
-        var greenSizeSlider = document.querySelector('#greenSlider');
-        greenSizeSlider.addEventListener('input',() => change_mode(-1), false);
-        
-        var blueSizeSlider = document.querySelector('#blueSlider');
-        blueSizeSlider.addEventListener('input',() => change_mode(-1), false);
 
         var radios = document.querySelectorAll('input[type=radio][name="hist_rb"]');
         //based on what radio button is selected, change the histogram mode to be applied to the image
@@ -185,17 +172,10 @@
                 kernelType = n;
             gl.uniform1i(kernelSelfLocation,0);
 
-            var r = redSizeSlider.value;
-            var g = greenSizeSlider.value;
-            var b = blueSizeSlider.value;
-            gl.uniform1f(redValue, r);
-            gl.uniform1f(greenValue, g);
-            gl.uniform1f(blueValue, b);
-
-            var p = periodSizeSlider.value;
+            var p = widthSlider.value;
             var x = xSlider.value / 100.0;
             var y = ySlider.value / 100.0;
-            gl.uniform1f(periodValue, p);
+            gl.uniform1f(widthValue, p);
             gl.uniform1f(xValue, x);
             gl.uniform1f(yValue, y);
 
@@ -215,6 +195,10 @@
             else if (n==1)
             {
                 gl.uniform1i(typeLoc,1);
+            }
+            else if (n==2)
+            {
+                gl.uniform1i(typeLoc,2);
             }
             webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
@@ -241,7 +225,7 @@
             event.preventDefault();
             FileList = event.dataTransfer.files;
             readImage(FileList[0]);
-           // render(FileList[0].image);
+            // render(FileList[0].image);
 
         });
 

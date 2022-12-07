@@ -20,13 +20,13 @@
 
 <div id="sizes">
   <div class="rangeslider">
-    <input type="range" min="1" max="20" value="3" id="kernelSlider" step="2" >
+    <input type="range" min="1" max="19" value="3" id="kernelSlider" step="2" >
     <label for="kernelSize">Blur Kernel Size</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="200" value="1" id="periodSlider" step="1" >
-    <label for="periodSize">Period Length</label><br>
+    <input type="range" min="1" max="200" value="1" id="widthSlider" step="1" >
+    <label for="functionWidth">Function Width</label><br>
   </div>
   <br>
   <div class="rangeslider">
@@ -39,27 +39,15 @@
     <label for="yOrigin">Center Y Coord.</label><br>
   </div>
   <br>
-  <div class="rangeslider">
-    <input type="range" min="0" max="255" value="255" id="redSlider" step="2" >
-    <label for="redSize">Blur Red</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-      <input type="range" min="0" max="255" value="255" id="greenSlider" step="2" >
-      <label for="greenSize">Blur Green</label><br>
-  </div>
-  <br>
-  <div class="rangeslider">
-      <input type="range" min="0" max="255" value="255" id="blueSlider" step="2" >
-      <label for="blueSize">Blur Blue</label><br>
-  </div>
 </div>
 
 <div id="slides">
     <input type="radio" name="hist_rb" id="hist0"  value="0" checked="checked">
     <label for="blur0">Original</label><br><br>
     <input type="radio" name="hist_rb" id="hist1"  value="1">
-    <label for="blur1">Cool Ripple Effect</label><br><br>
+    <label for="blur1">Function 1 - Horizontal</label><br><br>
+    <input type="radio" name="hist_rb" id="hist2"  value="2">
+    <label for="blur2">Function 2 - Sinusoid</label><br><br>
 </div>
 
 
@@ -116,10 +104,7 @@ uniform int u_kernelSize;
 uniform int u_kernelSelf;
 uniform int type;
 
-uniform float u_red;
-uniform float u_green;
-uniform float u_blue;
-uniform float u_period;
+uniform float u_width;
 uniform float u_xorigin;
 uniform float u_yorigin;
 
@@ -134,43 +119,71 @@ void main() {
   vec4 colorSum = vec4(0.0);
 
   vec4 tmp_clr = texture(u_image, v_texCoord);
-  float rm = 1.0;
-  float gm = 1.0;
-  float bm = 1.0;
-  float n_sin_value = 0.0;
 
-  // Plot distance from given origin on sinusoid
-  if (type != 0) {
-    float distance = sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
-    float sin_value = sin(u_period * distance);
-    n_sin_value = (sin_value + 1.0) / 2.0;
+  // Shader based on radio button selection
+  if (type == 1) { // Horizontal
+    // Box blur loop
+    int num_overlap = 0;
+    for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
+      for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+
+        // If on same horizontal line, add pixel color to blox blur
+        vec2 new_coord = v_texCoord + onePixel * vec2(i, j);
+        if (new_coord.y == v_texCoord.y) {
+          colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+          num_overlap += 1;
+        }
+
+      }
+    }
+    colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
+    colorSum = vec4((colorSum).rgb, 1);
+  }
+  else if (type == 2) { // Sinusoid
+    // y = 50 * sin( x / 40 ) + 200
+    // y' = 5 * cos(x / 40) / 4
+    // http://www.imajeenyus.com/mathematics/20121112_distance_estimates/point_to_function.pdf
+    // Easy to do because both function and derivative can be hardcoded in shader
     
-    // If in on correct point box blur
-    if (sin_value > 0.0) {
+    // Box blur loop
+    int num_overlap = 0;
+    vec2 pixelLoc = v_texCoord / onePixel;
+    float curr_d = abs(v_texCoord.y - (0.1 * sin( 20.0 * v_texCoord.x ) + 0.5));
+    if (curr_d < u_width / 200.0) {
       for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
         for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+
+          // If within approximate d (width) of sin function, add to box blur
+          vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+
+          // First attempt  using approximate distance from distance
+          //float tan_y = sin( pixelLoc.x ) + 200.0 ;
+          //float tan_slope = cos( pixelLoc.x );
+          //float tan_b = tan_y - tan_slope * float( pixelLoc.x ); // b from y=mx+b
+          //float d = abs(float(new_coord.y) - tan_slope * float(new_coord.x) - tan_b) / sqrt(pow(tan_slope, 2.0) + 1.0);
+          
+          // Using simpler vertical distance
+          float d = abs(new_coord.y - (0.1 * sin( 20.0 * new_coord.x ) + 0.5));
+          
+          if ( d < u_width / 200.0 ) {
             colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+            num_overlap += 1;
+          }
+
         }
       }
-      colorSum = vec4((colorSum).rgb, 1);
+      colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
     }
-    else { // Original color
-      colorSum = vec4(tmp_clr.r, tmp_clr.g, tmp_clr.b, 1);
+    else {
+      colorSum = tmp_clr;
     }
-
-    // Noramlize color modifiers from sliders
-    float divisor = 255.0;
-    rm = u_red / divisor;
-    gm = u_green / divisor;
-    bm = u_blue / divisor;
+    colorSum = vec4((colorSum).rgb, 1);
+  }
+  else { // Original
+    colorSum = tmp_clr;
   }
 
-  // Original and blur/color effects weighted by normalized sine function
-  float final_r = colorSum.r * rm * n_sin_value + tmp_clr.r * (1.0 - n_sin_value);
-  float final_g = colorSum.g * gm * n_sin_value + tmp_clr.g * (1.0 - n_sin_value);
-  float final_b = colorSum.b * bm * n_sin_value + tmp_clr.b * (1.0 - n_sin_value);
-
-  outColor = vec4(final_r, final_g, final_b, 1);
+  outColor = colorSum;
 }
 
 </script>
