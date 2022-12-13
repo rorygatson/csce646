@@ -172,7 +172,7 @@
                 kernelType = n;
             gl.uniform1i(kernelSelfLocation,0);
 
-            var p = widthSlider.value;
+            var p = widthSlider.value / 800.0;
             var x = xSlider.value / 100.0;
             var y = ySlider.value / 100.0;
             gl.uniform1f(widthValue, p);
@@ -199,6 +199,22 @@
             else if (n==2)
             {
                 gl.uniform1i(typeLoc,2);
+            }
+            else if (n == 3)
+            {
+                gl.uniform1i(typeLoc,3);
+            }
+            else if (n == 4)
+            {
+                gl.uniform1i(typeLoc,4);
+            }
+            else if (n == 5)
+            {
+                gl.uniform1i(typeLoc,5);
+            }
+            else
+            {
+                gl.uniform1i(typeLoc,6);
             }
             webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 

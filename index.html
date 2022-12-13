@@ -8,7 +8,7 @@
 
 <div class="header">
     <!-- Use the buttons to create multiple pages later if required -->
-    <header>Project 1</header>
+    <header>Curve Integral Convolution with Implicit Functions</header>
 </div>
 
 <!--create canvas, and add interface related stuff like sliders etc -->
@@ -25,18 +25,18 @@
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="200" value="1" id="widthSlider" step="1" >
+    <input type="range" min="1" max="20" value="1" id="widthSlider" step="1" >
     <label for="functionWidth">Function Width</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="100" value="1" id="xSlider" step="1" >
+    <input type="range" min="1" max="200" value="50" id="xSlider" step="1" >
     <label for="xOrigin">Center X Coord.</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="100" value="1" id="ySlider" step="1" >
-    <label for="yOrigin">Center Y Coord.</label><br>
+    <input type="range" min="1" max="200" value="50" id="ySlider" step="1" >
+    <label for="yOrigin">Extra Modifier</label><br>
   </div>
   <br>
 </div>
@@ -44,10 +44,14 @@
 <div id="slides">
     <input type="radio" name="hist_rb" id="hist0"  value="0" checked="checked">
     <label for="blur0">Original</label><br><br>
-    <input type="radio" name="hist_rb" id="hist1"  value="1">
-    <label for="blur1">Function 1 - Horizontal</label><br><br>
-    <input type="radio" name="hist_rb" id="hist2"  value="2">
-    <label for="blur2">Function 2 - Sinusoid</label><br><br>
+    <input type="radio" name="hist_rb" id="hist3"  value="3">
+    <label for="blur3">Function 3 - Circle</label><br><br>
+    <input type="radio" name="hist_rb" id="hist4"  value="4">
+    <label for="blur4">Function 4 - Sinusoid Fixed</label><br><br>
+    <input type="radio" name="hist_rb" id="hist5"  value="5">
+    <label for="blur5">Function 5 - Linear</label><br><br>
+    <input type="radio" name="hist_rb" id="hist6"  value="6">
+    <label for="blur6">Function 6 - Pentagon</label><br><br>
 </div>
 
 
@@ -92,6 +96,7 @@ void main() {
 
 // fragment shaders don't have a default precision so we need
 // to pick one. highp is a good default. It means "high precision"
+#define M_PI 3.1415926535897932384626433832795
 precision highp float;
 
 // our texture
@@ -121,15 +126,23 @@ void main() {
   vec4 tmp_clr = texture(u_image, v_texCoord);
 
   // Shader based on radio button selection
-  if (type == 1) { // Horizontal
-    // Box blur loop
+  if (type == 3) { // Circle
     int num_overlap = 0;
+    vec2 pixelLoc = v_texCoord / onePixel;
+    float radius = sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
+    
+    // Loop through each pixel in box blur region
     for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
       for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
 
-        // If on same horizontal line, add pixel color to blox blur
-        vec2 new_coord = v_texCoord + onePixel * vec2(i, j);
-        if (new_coord.y == v_texCoord.y) {
+        // Get coordinate in box blur
+        vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+
+        // Calculate distance value for whether new point falls inside point specific kernel
+        float d_query = sqrt( pow((new_coord.x - u_xorigin), 2.0) + pow((new_coord.y - u_yorigin), 2.0));
+        
+        // If new point 
+        if ( abs(d_query - radius) < u_width ) {
           colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
           num_overlap += 1;
         }
@@ -137,47 +150,87 @@ void main() {
       }
     }
     colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
-    colorSum = vec4((colorSum).rgb, 1);
+
   }
-  else if (type == 2) { // Sinusoid
-    // y = 50 * sin( x / 40 ) + 200
-    // y' = 5 * cos(x / 40) / 4
-    // http://www.imajeenyus.com/mathematics/20121112_distance_estimates/point_to_function.pdf
-    // Easy to do because both function and derivative can be hardcoded in shader
-    
-    // Box blur loop
+  else if (type == 4) { // Sinusoid fixed
+    // y = 0.1 * sin( 20 * x - u_xorigin ) + displacement
     int num_overlap = 0;
-    vec2 pixelLoc = v_texCoord / onePixel;
-    float curr_d = abs(v_texCoord.y - (0.1 * sin( 20.0 * v_texCoord.x ) + 0.5));
-    if (curr_d < u_width / 200.0) {
-      for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
-        for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+    float displacement = v_texCoord.y - (0.1 * sin( 20.0 * v_texCoord.x - u_xorigin));
 
-          // If within approximate d (width) of sin function, add to box blur
-          vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+    // Loop through each pixel in box blur region
+    for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
+      for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+        // If within approximate d (width) of sin function, add to box blur
+        vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+        // Using simpler vertical distance to filter width
+        float d = abs(new_coord.y - (0.1 * sin( 20.0 * new_coord.x - u_xorigin ) + displacement));
+        if ( d < u_width ) {
+          colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+          num_overlap += 1;
+        }
 
-          // First attempt  using approximate distance from distance
-          //float tan_y = sin( pixelLoc.x ) + 200.0 ;
-          //float tan_slope = cos( pixelLoc.x );
-          //float tan_b = tan_y - tan_slope * float( pixelLoc.x ); // b from y=mx+b
-          //float d = abs(float(new_coord.y) - tan_slope * float(new_coord.x) - tan_b) / sqrt(pow(tan_slope, 2.0) + 1.0);
-          
-          // Using simpler vertical distance
-          float d = abs(new_coord.y - (0.1 * sin( 20.0 * new_coord.x ) + 0.5));
-          
-          if ( d < u_width / 200.0 ) {
-            colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
-            num_overlap += 1;
-          }
+      }
+    }
+    colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
+  }
+  else if (type == 5) { // Linear
+    // y = (input slope)x + displacement
+    float slope = (u_yorigin - 1.0) * 5.0 + 0.001; // Slope based on extra modifier still named u_yorigin i.e. TODO: change name
+    int num_overlap = 0;
+    float displacement = v_texCoord.y - (slope * v_texCoord.x);
 
+    // Loop through each pixel in box blur region
+    for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
+      for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+        // If within approximate d (width) of sin function, add to box blur
+        vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+        // Calculate distance between point and line
+        float i_slope = 1.0 / slope;
+        float x_inter = (new_coord.y - i_slope * new_coord.x - displacement) / (slope - i_slope);
+        float y_inter = slope * x_inter + displacement;
+        float d = sqrt( pow((new_coord.x - x_inter), 2.0) + pow((new_coord.y - y_inter), 2.0) );
+        // If distance is less than function width add to blur
+        if ( d < u_width ) {
+          colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+          num_overlap += 1;
         }
       }
-      colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
     }
-    else {
-      colorSum = tmp_clr;
+    colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
+  }
+  else if (type == 6) { // Pentagon
+    // y = (input slope)x + displacement
+    int num_overlap = 0;
+    float offset = 0.0;
+    int num_sides = 5;
+    float adj_dot = (v_texCoord.x - u_xorigin) / sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
+    float angle = acos(adj_dot); // Calculate angle
+    if (v_texCoord.y < u_yorigin) {
+      angle = 2.0 * M_PI - angle;
     }
-    colorSum = vec4((colorSum).rgb, 1);
+    float increment = 2.0 * M_PI / float(num_sides);
+    float slope = -1.0 / tan((floor(angle / increment) + 0.01 ) * increment + M_PI / float(num_sides)); // add 0.01 as rudimentary fix for zero case
+    float displacement = v_texCoord.y - (slope * v_texCoord.x);
+
+    // Loop through each pixel in box blur region
+    for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
+      for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
+        // If within approximate d (width) of sin function, add to box blur
+        vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
+        // Calculate distance between point and line
+        float i_slope = 1.0 / (slope); // rudimentary fix for slope 0
+        float x_inter = (new_coord.y - i_slope * new_coord.x - displacement) / (slope - i_slope);
+        float y_inter = slope * x_inter + displacement;
+        float d = sqrt( pow((new_coord.x - x_inter), 2.0) + pow((new_coord.y - y_inter), 2.0) );
+        
+        // If distance is less than function width add to blur
+        if ( d < u_width ) {
+          colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
+          num_overlap += 1;
+        }
+      }
+    }
+    colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
   }
   else { // Original
     colorSum = tmp_clr;
