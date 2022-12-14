@@ -6,7 +6,7 @@
     function main() {
        // getImage();
         var image = new Image();
-        image.src = "sunset.jpg";  // MUST BE SAME DOMAIN!!!
+        image.src = "space.jpg";  // MUST BE SAME DOMAIN!!!
         image.onload = function() {
             render(image);
         }
@@ -71,7 +71,8 @@
         var widthValue = gl.getUniformLocation(program,"u_width");
         var xValue = gl.getUniformLocation(program,"u_xorigin");
         var yValue = gl.getUniformLocation(program,"u_yorigin");
-
+        var numSides = gl.getUniformLocation(program,"u_nsides");
+        var pValue = gl.getUniformLocation(program,"u_period");
 
         // provide texture coordinates for the rectangle.
         var texCoordBuffer = gl.createBuffer();
@@ -157,6 +158,10 @@
         xSlider.addEventListener('input',() => change_mode(-1), false);
         var ySlider = document.querySelector('#ySlider');
         ySlider.addEventListener('input',() => change_mode(-1), false);
+        var nSlider = document.querySelector('#nSlider');
+        nSlider.addEventListener('input',() => change_mode(-1), false);
+        var pSlider = document.querySelector('#pSlider');
+        pSlider.addEventListener('input',() => change_mode(-1), false);
 
         var radios = document.querySelectorAll('input[type=radio][name="hist_rb"]');
         //based on what radio button is selected, change the histogram mode to be applied to the image
@@ -174,10 +179,14 @@
 
             var p = widthSlider.value / 800.0;
             var x = xSlider.value / 100.0;
-            var y = ySlider.value / 100.0;
+            var y = (100.0 - ySlider.value)/ 100.0;
+            var nSides = nSlider.value;
+            var period = pSlider.value;
             gl.uniform1f(widthValue, p);
             gl.uniform1f(xValue, x);
             gl.uniform1f(yValue, y);
+            gl.uniform1f(numSides, nSides);
+            gl.uniform1f(pValue, period);
 
             var s = kernelSizeSlider.value;
             var tmp_kernel = [];

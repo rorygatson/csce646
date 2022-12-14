@@ -30,13 +30,23 @@
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="200" value="50" id="xSlider" step="1" >
-    <label for="xOrigin">Center X Coord.</label><br>
+    <input type="range" min="1" max="100" value="50" id="xSlider" step="1" >
+    <label for="xOrigin">X Displacement</label><br>
   </div>
   <br>
   <div class="rangeslider">
-    <input type="range" min="1" max="200" value="50" id="ySlider" step="1" >
-    <label for="yOrigin">Extra Modifier</label><br>
+    <input type="range" min="1" max="100" value="50" id="ySlider" step="1" >
+    <label for="yOrigin">Y Displacement</label><br>
+  </div>
+  <br>
+    <div class="rangeslider">
+    <input type="range" min="1" max="10" value="5" id="nSlider" step="1" >
+    <label for="numSides">Num Sides / Amplitude</label><br>
+  </div>
+  <br>
+  <div class="rangeslider">
+    <input type="range" min="0" max="20" value="10" id="pSlider" step="1" >
+    <label for="pValue">Rotation / Period</label><br>
   </div>
   <br>
 </div>
@@ -44,14 +54,14 @@
 <div id="slides">
     <input type="radio" name="hist_rb" id="hist0"  value="0" checked="checked">
     <label for="blur0">Original</label><br><br>
+    <input type="radio" name="hist_rb" id="hist1"  value="1">
+    <label for="blur1">Function 1 - Circle</label><br><br>
+    <input type="radio" name="hist_rb" id="hist2"  value="2">
+    <label for="blur2">Function 2 - Sinusoid</label><br><br>
     <input type="radio" name="hist_rb" id="hist3"  value="3">
-    <label for="blur3">Function 3 - Circle</label><br><br>
+    <label for="blur3">Function 3 - Linear</label><br><br>
     <input type="radio" name="hist_rb" id="hist4"  value="4">
-    <label for="blur4">Function 4 - Sinusoid Fixed</label><br><br>
-    <input type="radio" name="hist_rb" id="hist5"  value="5">
-    <label for="blur5">Function 5 - Linear</label><br><br>
-    <input type="radio" name="hist_rb" id="hist6"  value="6">
-    <label for="blur6">Function 6 - Pentagon</label><br><br>
+    <label for="blur4">Function 4 - Polygon</label><br><br>
 </div>
 
 
@@ -112,6 +122,8 @@ uniform int type;
 uniform float u_width;
 uniform float u_xorigin;
 uniform float u_yorigin;
+uniform float u_nsides;
+uniform float u_period;
 
 // the texCoords passed in from the vertex shader.
 in vec2 v_texCoord;
@@ -126,7 +138,7 @@ void main() {
   vec4 tmp_clr = texture(u_image, v_texCoord);
 
   // Shader based on radio button selection
-  if (type == 3) { // Circle
+  if (type == 1) { // Circle
     int num_overlap = 0;
     vec2 pixelLoc = v_texCoord / onePixel;
     float radius = sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
@@ -137,10 +149,8 @@ void main() {
 
         // Get coordinate in box blur
         vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
-
         // Calculate distance value for whether new point falls inside point specific kernel
         float d_query = sqrt( pow((new_coord.x - u_xorigin), 2.0) + pow((new_coord.y - u_yorigin), 2.0));
-        
         // If new point 
         if ( abs(d_query - radius) < u_width ) {
           colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
@@ -152,10 +162,11 @@ void main() {
     colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
 
   }
-  else if (type == 4) { // Sinusoid fixed
-    // y = 0.1 * sin( 20 * x - u_xorigin ) + displacement
+  else if (type == 2) { // Sinusoid
+    // y = 0.02 * amplitude * sin( 20 * x - u_xorigin ) + displacement
     int num_overlap = 0;
-    float displacement = v_texCoord.y - (0.1 * sin( 20.0 * v_texCoord.x - u_xorigin));
+    float modified_x = 10.0 * u_xorigin; // extends range of x values to create "wave" effect
+    float displacement = v_texCoord.y - (0.02 * u_nsides * sin( 2.0 * u_period * v_texCoord.x - modified_x));
 
     // Loop through each pixel in box blur region
     for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
@@ -163,7 +174,7 @@ void main() {
         // If within approximate d (width) of sin function, add to box blur
         vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
         // Using simpler vertical distance to filter width
-        float d = abs(new_coord.y - (0.1 * sin( 20.0 * new_coord.x - u_xorigin ) + displacement));
+        float d = abs(new_coord.y - (0.02 * u_nsides * sin( 2.0 * u_period * new_coord.x - modified_x ) + displacement));
         if ( d < u_width ) {
           colorSum = colorSum + texture(u_image, v_texCoord + onePixel * vec2(i,j)) * u_kernel[(j+(u_kernelSize - 1)/2) + (i+ (u_kernelSize - 1)/2 )*u_kernelSize];
           num_overlap += 1;
@@ -173,16 +184,16 @@ void main() {
     }
     colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
   }
-  else if (type == 5) { // Linear
+  else if (type == 3) { // Linear
     // y = (input slope)x + displacement
-    float slope = (u_yorigin - 1.0) * 5.0 + 0.001; // Slope based on extra modifier still named u_yorigin i.e. TODO: change name
+    float slope = (u_nsides / 10.0 - 1.0) * 5.0 + 0.001; // Slope based on extra modifier still named u_yorigin i.e. TODO: change name
     int num_overlap = 0;
     float displacement = v_texCoord.y - (slope * v_texCoord.x);
 
     // Loop through each pixel in box blur region
     for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
       for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
-        // If within approximate d (width) of sin function, add to box blur
+        // If within approximate d (width) of function, add to box blur
         vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
         // Calculate distance between point and line
         float i_slope = 1.0 / slope;
@@ -198,27 +209,26 @@ void main() {
     }
     colorSum /= float(num_overlap) / (float(u_kernelSize) * float(u_kernelSize));
   }
-  else if (type == 6) { // Pentagon
-    // y = (input slope)x + displacement
+  else if (type == 4) { // Polygon
     int num_overlap = 0;
-    float offset = 0.0;
-    int num_sides = 5;
+    float rotation = u_period * 2.0 * M_PI / 20.0;
     float adj_dot = (v_texCoord.x - u_xorigin) / sqrt( pow((v_texCoord.x - u_xorigin), 2.0) + pow((v_texCoord.y - u_yorigin), 2.0));
     float angle = acos(adj_dot); // Calculate angle
     if (v_texCoord.y < u_yorigin) {
       angle = 2.0 * M_PI - angle;
     }
-    float increment = 2.0 * M_PI / float(num_sides);
-    float slope = -1.0 / tan((floor(angle / increment) + 0.01 ) * increment + M_PI / float(num_sides)); // add 0.01 as rudimentary fix for zero case
+    angle += rotation;
+    float increment = 2.0 * M_PI / u_nsides;
+    float slope = -1.0 / tan((floor(angle / increment) + 0.01 ) * increment + M_PI / u_nsides - rotation); // add 0.01 prevent divide by zero case
     float displacement = v_texCoord.y - (slope * v_texCoord.x);
 
     // Loop through each pixel in box blur region
     for(int i=-(u_kernelSize - 1)/2; i<=(u_kernelSize - 1)/2; i++) {
       for(int j=-(u_kernelSize - 1)/2; j<=(u_kernelSize - 1)/2; j++) {
-        // If within approximate d (width) of sin function, add to box blur
+        // If within approximate d (width) of function, add to box blur
         vec2 new_coord = v_texCoord + onePixel * vec2(i,j);
         // Calculate distance between point and line
-        float i_slope = 1.0 / (slope); // rudimentary fix for slope 0
+        float i_slope = 1.0 / slope; // rudimentary fix for slope 0
         float x_inter = (new_coord.y - i_slope * new_coord.x - displacement) / (slope - i_slope);
         float y_inter = slope * x_inter + displacement;
         float d = sqrt( pow((new_coord.x - x_inter), 2.0) + pow((new_coord.y - y_inter), 2.0) );
