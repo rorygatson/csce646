@@ -1,10 +1,8 @@
 Rory Gatson (CSCE 646 Project Notes): 
 
-This code has been modified to perform a ripple blur effect.
-The ripple radiates from a user defined point in the image and can be modified in multiple ways by the user.
-The period length slider will determine the period of the sine funciton that defines the ripple.
-Kernel size refers to the kernel of the box blur within the altered region of the image.
-Color modifiers can be used to see the effect better and to create more iteresting images.
+This code has ben modified to run a Curve Integral Convolution with Implicit Functions.
+There are four example functions to use as a demonstration. 
+
 
 I ran this code using the live server extension in VSCode but it can be ran using any local hosting application for web development.
 
